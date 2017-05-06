@@ -12,8 +12,10 @@ minifyHTML = require('gulp-minify-html'),
 autoprefixer = require('gulp-autoprefixer'),
 imagemin = require('gulp-imagemin'),
 spritesmith = require('gulp.spritesmith'),
-concatjs = require('gulp-concat');
-pngquant = require('imagemin-pngquant');
+concatjs = require('gulp-concat'),
+pngquant = require('imagemin-pngquant'),
+babel = require('gulp-babel'),
+changed = require('gulp-changed');
 
 // CONFIG     
 var config = {
@@ -21,6 +23,9 @@ var config = {
     tunnel: false,
     host: 'localhost',
     port: 9777,
+    open: false,
+    notify: false,
+    scrollProportionally: false,
     logPrefix: "Frontend"
 };
 // HTML min options
@@ -84,9 +89,18 @@ gulp.on('err', function(err){
 // HTML src --> development
 gulp.task('html:build', function () {
     gulp.src(path.src.html)
-    .pipe(rigger()) // uses construction   //= footer.html  to add partils 
+    // .pipe(changed(path.dev.htmlDest))
+    .pipe(rigger()).on('error', swallowError) // uses construction   //= footer.html  to add partils 
     // .pipe(minifyHTML(opts))
-    .pipe(gulp.dest(path.dev.htmlDest)) 
+    .pipe(gulp.dest(path.dev.htmlDest)).on('error', swallowError)  
+    .pipe(reload({stream: true}));
+});
+gulp.task('html:build-partial', function () {
+    gulp.src(path.src.html)
+    .pipe(changed(path.dev.htmlDest))
+    .pipe(rigger()).on('error', swallowError) // uses construction   //= footer.html  to add partils 
+    // .pipe(minifyHTML(opts))
+    .pipe(gulp.dest(path.dev.htmlDest)).on('error', swallowError)  
     .pipe(reload({stream: true}));
 });
 // CSS src --> development
@@ -101,11 +115,11 @@ gulp.task('style:build', function () {
 // JS src --> development
 gulp.task('js:build', function () {
     gulp.src([
-        'src/js/first-order-vendor/*.js',
-        'src/js/*.js',
-        'src/js/vendor/*.js'
+        'src/js/vendor/*.js',
+        'src/js/*.js'
         ])
-    .pipe(concatjs('main.js')).on('error', swallowError)
+    .pipe(babel({presets: ['es2015']})).on('error', swallowError) // es6 -> es5
+    .pipe(concatjs('main.js')).on('error', swallowError) // build js to 1 file 
     .pipe(gulp.dest(path.dev.jsDest)) // build css in folder 
     .pipe(browserSync.stream()); // livereload page
 });
@@ -128,19 +142,6 @@ gulp.task('sprite:build',function(){
     spriteData.css.pipe(gulp.dest(path.src.spriteCss)); // путь, куда сохраняем стили
 });
 
-// Sprite builder  !EXAMPLE !!!!!!!!!!!!!
-gulp.task('sprite', function() {
-    var spriteData = 
-        gulp.src('./sprite/*.*') // путь, откуда берем картинки для спрайта
-        .pipe(spritesmith({
-            imgName: 'sprite.png',
-            cssName: 'sprite.css',
-            cssFormat: 'css',
-        }));
-
-    spriteData.img.pipe(gulp.dest('./sprite-output')); // путь, куда сохраняем картинку
-    spriteData.css.pipe(gulp.dest('./css')); // путь, куда сохраняем стили
-});
 
 // DEVELOPMENT BUILDING TASKS END
 
@@ -151,14 +152,17 @@ gulp.task('build', [
     'img:build',
     'sprite:build'
     ]);
-
 // 
 
 // Watcher that will autoupdate development
 gulp.task('watch', function(){
-    // watch HTML to Build 
-    watch(path.src.htmlWatch, function(event, cb) {
+    // watch HTML to Build All
+    watch('src/templates/*/*.html', function(event, cb) {
         gulp.start('html:build');
+    });
+    // watch HTML to Build 
+    watch(path.src.html, function(event, cb) {
+        gulp.start('html:build-partial');
     });
     // Watch HTML to livereload
     watch([path.dev.html], function(event,cb){
@@ -166,9 +170,10 @@ gulp.task('watch', function(){
         .pipe(browserSync.stream());
     });
     // Watch Scss to build
-    watch([path.src.style], function(event, cb) {
-        gulp.start('style:build');
-    });
+    // watch([path.src.style], function(event, cb) {
+        watch([path.src.style, 'src/style/*/*.scss'], function(event, cb) {
+            gulp.start('style:build');
+        });
     // Watch js to concat and livereload
     watch(path.src.js, function(event, cb) {
         gulp.start('js:build');
@@ -176,6 +181,10 @@ gulp.task('watch', function(){
     // Watch images
     watch([path.src.img], function(event,cb){
         gulp.start('img:build');
+    });
+    //Watch sprites
+    watch([path.src.sprite], function(event,cb){
+        gulp.start('sprite:build');
     });
     // Watch js to livereload
     // watch([path.dev.js], function(event, cb) {
@@ -185,21 +194,6 @@ gulp.task('watch', function(){
 });
 // 
 
-
-
-// Sprite builder 
-gulp.task('sprite', function() {
-    var spriteData = 
-        gulp.src('./sprite/*.*') // путь, откуда берем картинки для спрайта
-        .pipe(spritesmith({
-            imgName: 'sprite.png',
-            cssName: 'sprite.scss',
-            cssFormat: 'scss',
-        }));
-
-    spriteData.img.pipe(gulp.dest('./sprite-output')); // путь, куда сохраняем картинку
-    spriteData.css.pipe(gulp.dest('./css')); // путь, куда сохраняем стили
-});
 
 // To production stage
 gulp.task("prod", [
