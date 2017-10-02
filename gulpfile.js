@@ -23,7 +23,7 @@ var config = {
     tunnel: false,
     host: 'localhost',
     port: 9777,
-    open: false,
+    open: true,
     notify: false,
     scrollProportionally: false,
     logPrefix: "Frontend"
@@ -109,6 +109,7 @@ gulp.task('style:build', function () {
     .pipe(sass({
         includePaths: ['style:build'].concat(neat) // concat to 1 file 
     })).on('error', swallowError)
+    .pipe(autoprefixer({browsers: ['last 5 versions', 'IE 7']})).on('error', swallowError)
     .pipe(gulp.dest(path.dev.styleDest)) // build css in folder 
     .pipe(browserSync.stream()); // livereload page
 });
