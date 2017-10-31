@@ -44,7 +44,7 @@ const isDevelopment = !process.env.NODE_ENV || process.env.NODE_ENV == "developm
 
 // CONFIG     
 let config = { // gulp development config
-    checkChanged: true, // cant turn ON CHANGED BEFORE it // test if works if files where deleted
+    checkChanged: true, // Check if files where before // cant turn ON CHANGED BEFORE it // test if works if files where deleted
     minifyHTML: true, // on prod stage
     minifyCSS: true,
     uglifyJS: true,
@@ -54,6 +54,7 @@ let config = { // gulp development config
     removeJsConsoleLogDev: false, // true to delete all console.log
     removeJsConsoleLog: true, // true to delete all console.log
     fontMinify: false, // think no need if not using chinese fonts , unstable option
+    showSizes: true,
 }
 let BrowserSyncConfig = {
     server: { baseDir: "./dev/" },
@@ -111,19 +112,15 @@ let htmlMinOptions = {
     spare: true
 };
 // Path options 
+// let path = require('/gulptasks/path')
 let path = {
     src: {
         html: 'src/templates/*.html',
-        htmlWatch: ['src/templates/*/*.html', 'src/templates/*.html'],
-        // htmlWatch: 'src/templates/**/*.html',
-        // style: 'src/style/*.scss',
+        htmlWatch: 'src/templates/**/*.html',
         style: 'src/style/*.{scss,sass}',
-        // js: ['src/js/*/*.js', 'src/js/*.js'],
         js: 'src/js/**/*.js',
-        img: ['src/img/**/*.*', '!src/img/sprite/**/*.*'],
-        // img: 'src/img/*.{png,jpg}', // multiple selector
+        img: ['src/img/**/*.*', '!src/img/sprite/**/*.*'], // all images but not sprites
         sprite: 'src/img/sprite/*.*',
-        spriteHover: 'src/img/sprite-hover/*.*',
         spriteCss: 'src/style/sprite',
         php: 'src/**/*.php',
     },
@@ -136,14 +133,14 @@ let path = {
         js: 'dev/js/*.js',
         imgDest: 'dev/img',
         sprite: 'dev/img/sprite',
-        spriteHover: 'dev/img/sprite-hover',
     },
     prod: {
-        html: 'prod/',
+        root: 'prod/',
         style: 'prod/style',
-        js: 'prod/js',
         img: 'prod/img',
-        php: 'prod/',
+        js: 'prod/js',
+        fonts: 'prod/fonts',
+        vendor: 'prod/vendor',
     }
 };
 
@@ -187,7 +184,8 @@ gulp.task('build:html', function () {
                 }
             })
         }))
-        // .pipe(plugins.changed(path.dev.htmlDest))
+        // .pipe(plugins.if(config.checkChanged ,plugins.changed(path.dev.htmlDest)))
+        .pipe(plugins.if(config.showGulpDebug, plugins.debug('changed html: ')))
         .pipe(plugins.rigger())// uses construction   //= footer.html  to add partils 
         .pipe(gulp.dest(path.dev.htmlDest))
         .pipe(reload({ stream: true }));
@@ -209,6 +207,41 @@ gulp.task('build:html-partial', function () {
         .pipe(reload({ stream: true }));
 });
 // CSS src --> development
+// stuff for css compilation
+let autoprefixer = require('autoprefixer')
+let mqpacker = require('css-mqpacker')
+let csso = require('postcss-csso')
+var processors = [
+    autoprefixer({
+        browsers: ['last 4 versions'],
+        cascade: false
+    }),
+    require('lost'),
+    mqpacker({
+        sort: sortMediaQueries
+    }),
+    csso
+];
+function isMax(mq) {
+    return /max-width/.test(mq);
+}
+function isMin(mq) {
+    return /min-width/.test(mq);
+}
+function sortMediaQueries(a, b) {
+    A = a.replace(/\D/g, '');
+    B = b.replace(/\D/g, '');
+    if (isMax(a) && isMax(b)) {
+        return B - A;
+    } else if (isMin(a) && isMin(b)) {
+        return A - B;
+    } else if (isMax(a) && isMin(b)) {
+        return 1;
+    } else if (isMin(a) && isMax(b)) {
+        return -1;
+    }
+    return 1;
+}
 gulp.task('build:style', function () {
     gulp.src(path.src.style)
         .pipe(plugins.plumber({
@@ -219,15 +252,18 @@ gulp.task('build:style', function () {
                 }
             })
         }))
-        // .pipe(plugins.if(isDevelopment, plugins.sourcemaps.init()))
+        .pipe(plugins.if(true, plugins.sourcemaps.init()))
+
         .pipe(plugins.sass({
-            includePaths: ['style:build'].concat(plugins.neat) // concat to 1 file 
+            outputStyle: 'nested', // nested, expanded, compact, compressed
+            precision: 5
         }))
-        .pipe(plugins.autoprefixer({ browsers: ['last 5 versions', 'IE 7'] }))
-        // .pipe(plugins.if(isDevelopment, plugins.sourcemaps.write('.')))
+        .pipe(plugins.postcss(processors))
+        .pipe(plugins.if(true, plugins.sourcemaps.write('./')))
         .pipe(gulp.dest(path.dev.styleDest)) // build css in folder 
-        .pipe(browserSync.stream()); // livereload page
+        .pipe(browserSync.stream()) // livereload page
 });
+// stuff for css compilation END
 // JS src --> development
 gulp.task('build:js', function () {
     gulp.src(['src/js/main.js'])
@@ -322,13 +358,13 @@ gulp.task('build:vendor', function () {
         .pipe(gulp.dest(destination))
         .pipe(reload({ stream: true }));
 })
-gulp.task('build:vendor-js',function(){
+gulp.task('build:vendor-js', function () {
     let dest = 'dev/js/vendor/';
     return gulp.src('src/js/vendor/**/*.*')
-    .pipe(plugins.if(config.checkChanged, plugins.changed(dest)))
-    .pipe(plugins.if(config.showGulpDebug, plugins.debug('vendor js files added: ')))
-    .pipe(gulp.dest(dest))
-    .pipe(reload({ stream: true }));
+        .pipe(plugins.if(config.checkChanged, plugins.changed(dest)))
+        .pipe(plugins.if(config.showGulpDebug, plugins.debug('vendor js files added: ')))
+        .pipe(gulp.dest(dest))
+        .pipe(reload({ stream: true }));
 });
 
 // clear some
@@ -401,11 +437,6 @@ gulp.task('watch', function () {
     plugins.watch('src/js/vendor/**/*.*', function () {
         gulp.start('build:vendor-js');
     });
-    // Watch js to livereload
-    // watch([path.dev.js], function(event, cb) {
-    //     gulp.src(path.dev.js)
-    //     .pipe(browserSync.stream());
-    // });
 });
 // 
 
@@ -431,18 +462,6 @@ gulp.task('watch', function () {
 //         .pipe(plugins.debug())
 // })
 
-
-// Do i need notify errors on prod 
-// .pipe(plugins.plumber({
-//     errorHandler: plugins.notify.onError(function (err) {
-//         return {
-//             title: 'title',
-//             message: err.message
-//         }
-//     })
-// }))
-
-
 // To production stage
 gulp.task("prod", [
     'prod:html',
@@ -453,26 +472,39 @@ gulp.task("prod", [
     'prod:img',
     'prod:htaccess',
     'prod:vendor',
-    // 'prod:sprite',
 ]);
 
 gulp.task('prod:html', function () {
-    gulp.src(path.dev.html)
-        .pipe(plugins.if(config.checkChanged, plugins.changed(path.prod.html))) // NEED TO DETALIZE HOW DETECT IF FILE WAS DELETED 
+    let destination = path.prod.root;
+    gulp.src('dev/*.html')
+        .pipe(plugins.if(config.checkChanged, plugins.changed(destination))) // NEED TO DETALIZE HOW DETECT IF FILE WAS DELETED 
+        .pipe(plugins.if(config.showSizes, plugins.size({
+            title: 'size before min : '
+        })))
         .pipe(plugins.if(config.minifyHTML, plugins.minifyHtml(htmlMinOptions)))
         .pipe(plugins.if(config.showGulpDebug, plugins.debug({ title: 'Changed html min files : ' })))
-        .pipe(gulp.dest(path.prod.html));
+        .pipe(gulp.dest(destination))
+        .pipe(plugins.if(config.showSizes, plugins.size({
+            title: 'size after min : '
+        })))
 });
 gulp.task('prod:style', function () {
-    gulp.src(path.dev.style)
-        .pipe(plugins.if(config.checkChanged, plugins.changed(path.prod.style)))
+    let destination = path.prod.style;
+    gulp.src('dev/style/*.css')
+        .pipe(plugins.if(config.checkChanged, plugins.changed(destination)))
+        .pipe(plugins.if(config.showSizes, plugins.size({
+            title: 'size before min : '
+        })))
         .pipe(plugins.if(config.showGulpDebug, plugins.debug({ title: 'Minified css : ' })))
         .pipe(plugins.if(config.minifyCSS, plugins.minifyCss({ compatibility: 'ie8' })))
-        .pipe(gulp.dest(path.prod.style));
+        .pipe(gulp.dest(destination))
+        .pipe(plugins.if(config.showSizes, plugins.size({
+            title: 'size after min : '
+        })))
 });
 gulp.task('prod:js', function () { // Minify all js files
-    gulp.src('dev/js/**/*.js')
-        // gulp.src([path.dev.js])
+    let destination = path.prod.js;
+    gulp.src(['dev/js/**/*.js', '!main.css.map'])
         .pipe(plugins.plumber({
             errorHandler: plugins.notify.onError(function (err) {
                 return {
@@ -481,47 +513,46 @@ gulp.task('prod:js', function () { // Minify all js files
                 }
             })
         }))
-        .pipe(plugins.if(config.checkChanged, plugins.changed(path.prod.js)))
+        .pipe(plugins.if(config.checkChanged, plugins.changed(destination)))
         .pipe(plugins.if(config.removeJsConsoleLog, plugins.removeLogging())) // remove all console logs
+        .pipe(plugins.if(config.showSizes, plugins.size({
+            title: 'size before min : '
+        })))
         .pipe(plugins.if(config.uglifyJS, plugins.uglify())) // uglify 
         .pipe(plugins.if(config.showGulpDebug, plugins.debug({ title: 'Uglified js : ' })))
-        .pipe(gulp.dest(path.prod.js));
+        .pipe(gulp.dest(destination))
+        .pipe(plugins.if(config.showSizes, plugins.size({
+            title: 'size after min : '
+        })))
 });
 gulp.task('prod:fonts', function () {
     del("prod/fonts/*.*", { read: false }); // clear all old files 
     gulp.src("dev/fonts/**/*.*")
         .pipe(plugins.if(config.checkChanged, plugins.changed("prod/fonts")))
         .pipe(plugins.if(config.fontMinify, plugins.fontmin()))
-        .pipe(gulp.dest("prod/fonts"));
+        .pipe(gulp.dest(path.prod.fonts));
 });
 gulp.task('prod:img', function () {
-    // return gulp.src(path.src.img)
+    let destination = path.prod.img;
     return gulp.src("dev/img/**/*.*")
-        .pipe(plugins.if(config.checkChanged, plugins.changed(path.prod.img)))
+        .pipe(plugins.if(config.checkChanged, plugins.changed(destination)))
+        .pipe(plugins.if(config.showSizes, plugins.size({
+            title: 'size before min : '
+        })))
         .pipe(plugins.if(config.showGulpDebug, plugins.debug({ title: 'images changed: ' })))
-
         .pipe(plugins.imagemin({
             progressive: true,
             svgoPlugins: [{ removeViewBox: false }],
             use: [pngquant()],
             interlaced: true
         }))
-        .pipe(gulp.dest(path.prod.img))
-
+        .pipe(gulp.dest(destination))
+        .pipe(plugins.if(config.showSizes, plugins.size({
+            title: 'size after min : '
+        })))
 });
-// gulp.task('prod:sprite', function () {
-//     return gulp.src("dev/style/sprite.png")
-//         .pipe(plugins.if(config.checkChanged, plugins.changed("prod/style")))
-//         .pipe(plugins.if(config.showGulpDebug, plugins.debug()))
-//         .pipe(plugins.imagemin({
-//             progressive: true,
-//             svgoPlugins: [{ removeViewBox: false }],
-//             use: [pngquant()],
-//             interlaced: true
-//         }))
-//         .pipe(gulp.dest("prod/style"))
-// });
 gulp.task('prod:php', function () { // test
+    let destination = path.prod.root;
     gulp.src('dev/**/*.php')
         .pipe(plugins.plumber({
             errorHandler: plugins.notify.onError(function (err) {
@@ -531,28 +562,33 @@ gulp.task('prod:php', function () { // test
                 }
             })
         }))
-        .pipe(plugins.if(config.checkChanged, plugins.changed("prod/")))
+        .pipe(plugins.if(config.checkChanged, plugins.changed(destination)))
+        .pipe(plugins.if(config.showSizes, plugins.size({
+            title: 'size before min : '
+        })))
         .pipe(plugins.if(config.showGulpDebug, plugins.debug({ title: 'PHP files minified' })))
         .pipe(plugins.if(config.minifyPHP, plugins.phpMinify({ silent: true })))
-        .pipe(gulp.dest("prod/"))
+        .pipe(gulp.dest(destination))
+        .pipe(plugins.if(config.showSizes, plugins.size({
+            title: 'size after min : '
+        })))
 });
 gulp.task('prod:htaccess', function () {
     gulp.src('src/**/.htaccess')
-        .pipe(plugins.if(config.checkChanged, plugins.changed("prod/")))
+        .pipe(plugins.if(config.checkChanged, plugins.changed(path.prod.root)))
         .pipe(plugins.if(config.showGulpDebug, plugins.debug({ title: 'htaccess rewriten : ' })))
-        .pipe(gulp.dest("prod/"))
+        .pipe(gulp.dest(path.prod.root))
 })
 gulp.task('prod:vendor', function () {
     // let takeFrom = 'src/vendor/**/*.*';
     let takeFrom = 'dev/vendor/**/*.*';
-    let destination = 'prod/vendor/';
+    let destination = path.prod.vendor;
     return gulp.src(takeFrom)
         .pipe(plugins.if(config.checkChanged, plugins.changed(destination)))
         .pipe(plugins.if(config.showGulpDebug, plugins.debug('vendor files added: ')))
         .pipe(gulp.dest(destination))
 })
 
-// 
 gulp.task("build-prod", [
     'build', 'prod'
 ]);
