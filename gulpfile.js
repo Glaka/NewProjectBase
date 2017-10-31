@@ -1,49 +1,131 @@
-var gulp = require('gulp'),
-sass = require('gulp-sass'),
-watch = require('gulp-watch'),
-rigger = require('gulp-rigger'),
-neat = require('node-neat').includePaths,
-browserSync = require("browser-sync"),
-minifyCss = require('gulp-minify-css'),
-reload = browserSync.reload,
-uglify = require('gulp-uglify'),
-minifyCss = require('gulp-minify-css'),
-minifyHTML = require('gulp-minify-html'),
-autoprefixer = require('gulp-autoprefixer'),
-imagemin = require('gulp-imagemin'),
-spritesmith = require('gulp.spritesmith'),
-concatjs = require('gulp-concat'),
-pngquant = require('imagemin-pngquant'),
-babel = require('gulp-babel'),
-changed = require('gulp-changed');
+const gulp = require('gulp');
+
+const browserSync = require("browser-sync");
+const reload = browserSync.reload;
+const webpackStream = require('webpack-stream');
+const webpack = webpackStream.webpack;
+
+const named = require('vinyl-named');
+const del = require('del');
+const pngquant = require('imagemin-pngquant');
+
+// require all plugins 
+const plugins = require('gulp-load-plugins')({
+    pattern: ['gulp-*', 'gulp.*'],
+    replaceString: /\bgulp[\-.]/
+});
+// plugins doc : 
+// const sass = require('gulp-sass - https://www.npmjs.com/package/gulp-sass
+// const watch = require('gulp-watch'); - https://www.npmjs.com/package/gulp-sass
+// const rigger = require('gulp-rigger'); - https://www.npmjs.com/package/gulp-rigger
+// uses construction   //= footer.html  to add partils 
+// const minifyCss = require('gulp-minify-css'); - https://www.npmjs.com/package/gulp-minify-css
+// const uglify = require('gulp-uglify'); - https://www.npmjs.com/package/gulp-uglify
+// const minifyHTML = require('gulp-minify-html'); - https://www.npmjs.com/package/gulp-minify-html
+// const autoprefixer = require('gulp-autoprefixer');
+// const imagemin = require('gulp-imagemin');
+// const gulpif = require('gulp-if'); // if else plugin
+// const changed = require('gulp-changed'); // work only with changed files
+// const sourcemaps = require('gulp-sourcemaps'); 
+// const concatjs = require('gulp-concat');
+// const spritesmith = require('gulp.spritesmith'); // sprite builder 
+// const notify = require('gulp-notify'); // pretty notify errors
+// const plumber = require('gulp-plumber'); // sets errors to all pipes
+// const debug = require('gulp-debug'); // let debug gulp processes
+// const neat = require('node-neat').includePaths; // wat for 
+// const babel = require('gulp-babel');
+// sftp - https://github.com/gtg092x/gulp-sftp 
+// fontmin - https://www.npmjs.com/package/gulp-fontmin
+// new test packages 
+// const cached = require('gulp-cached');
+// const path = require('path');
+
+const isDevelopment = !process.env.NODE_ENV || process.env.NODE_ENV == "development";
 
 // CONFIG     
-var config = {
-    server: {baseDir: "./dev/"},
+let config = { // gulp development config
+    checkChanged: true, // cant turn ON CHANGED BEFORE it // test if works if files where deleted
+    minifyHTML: true, // on prod stage
+    minifyCSS: true,
+    uglifyJS: true,
+    concatJS: false,
+    minifyPHP: true,
+    showGulpDebug: true,
+    removeJsConsoleLogDev: false, // true to delete all console.log
+    removeJsConsoleLog: true, // true to delete all console.log
+    fontMinify: false, // think no need if not using chinese fonts , unstable option
+}
+let BrowserSyncConfig = {
+    server: { baseDir: "./dev/" },
     tunnel: false,
     host: 'localhost',
-    port: 9777,
-    open: true,
-    notify: false,
+    port: 9451,
+    open: false,
+    notify: true,
     scrollProportionally: false,
-    logPrefix: "Frontend"
+    logPrefix: "Frontend",
+    // proxy: "http://inchoo.net/magento/magento-frontend/a-simple-frontend-workflow-for-gulp/",
+    // middleware: require('serve-static')('./dev'),
+    // files: "./dev/style/main.css",
+    // rewriteRules: [
+    //     {
+    //         match: new RegExp('</head>'),
+    //         fn: function() {
+    //             return '<script async="" src="/browser-sync/browser-sync-client.2.9.6.js"></script>' +
+    //                 '<link rel="stylesheet" type="text/css" href="/css/main.css" media="all"><script src="/js/responsive.js" type="text/javascript"></script></head >'
+    //         }
+    //     },
+    //     {
+    //         match: new RegExp('<link rel="up" href="/">'),
+    //         fn: function() {
+    //             return '<link rel="stylesheet" type="text/css" href="/css/music.css" media="all">'
+    //         }
+    //     },
+    //     {
+    //         match: '<link rel="stylesheet" type="text/css" href="/f/1/business/find_solutions/smeLandingNew.css?1.1" media="all">',
+    //         fn: function() {
+    //             return '<link rel="stylesheet" type="text/css" href="/f/1/business/find_solutions/smeLandingNew.css?1.1" media="all"><link rel="stylesheet" type="text/css" href="/css/find-solutions.css" media="all">'
+    //         }
+    //     },
+    //     // removing already deployed assets
+    //     {
+    //         match: new RegExp('/f/1/mm/tariffs/contract/global/main.css'),
+    //         fn: function() {
+    //             return ''
+    //         }
+    //     },
+    //     {
+    //         match: new RegExp('/f/1/mm/tariffs/contract/global/responsive.js'),
+    //         fn: function() {
+    //             return ''
+    //         }
+    //     }
+    // ],
 };
+let webpackConfig = {
+};
+
 // HTML min options
-var opts = {
+let htmlMinOptions = {
     conditionals: true,
-    spare:true
+    spare: true
 };
 // Path options 
-var path = {
+let path = {
     src: {
         html: 'src/templates/*.html',
-        htmlWatch: ['src/templates/*/*.html','src/templates/*.html'],
-        style: 'src/style/*.scss',
-        js: ['src/js/*/*.js','src/js/*.js'],
-        img: 'src/img/*.*',
+        htmlWatch: ['src/templates/*/*.html', 'src/templates/*.html'],
+        // htmlWatch: 'src/templates/**/*.html',
+        // style: 'src/style/*.scss',
+        style: 'src/style/*.{scss,sass}',
+        // js: ['src/js/*/*.js', 'src/js/*.js'],
+        js: 'src/js/**/*.js',
+        img: ['src/img/**/*.*', '!src/img/sprite/**/*.*'],
+        // img: 'src/img/*.{png,jpg}', // multiple selector
         sprite: 'src/img/sprite/*.*',
         spriteHover: 'src/img/sprite-hover/*.*',
         spriteCss: 'src/style/sprite',
+        php: 'src/**/*.php',
     },
     dev: {
         htmlDest: 'dev/',
@@ -59,133 +141,265 @@ var path = {
     prod: {
         html: 'prod/',
         style: 'prod/style',
-        js: 'prod/js',      
-        img: 'prod/img'  
+        js: 'prod/js',
+        img: 'prod/img',
+        php: 'prod/',
     }
 };
 
-// START PROJECT 
-gulp.task('start', function(){
-    return gulp.dest("/wwww");
-});
-// START PROJECT END
 
 // Webserver start task 
 gulp.task('webserver', function () {
-    browserSync(config);
+    browserSync(BrowserSyncConfig);
 });
 
-// Task that runs when syntax error to prevent gulp crush
-function swallowError (error) {
-    console.log(error.toString());
-    console.log("error has been swaloved");
-    this.emit('end');
-}
-gulp.on('err', function(err){
-  console.log(err);
+// Dev/prod
+gulp.task('check-enviroment', function () {
+    console.group('Check eniroment. Enviroment is dev : ' + isDevelopment);
+    // if (isDevelopment) {
+    //     gulpOptions = {}
+    // }
+    // else {
+    //     gulpOptions = {}
+    // }
 });
+
+
+// Task that runs when syntax error to prevent gulp crush
+// function swallowError(error) {
+//     console.log(error.toString());
+//     this.emit('end');
+// }
+
+// gulp.on('err', function (err) {
+//     console.log(err);
+// });
 
 // DEVELOPMENT BUILDING TASKS
 // HTML src --> development
-gulp.task('html:build', function () {
+gulp.task('build:html', function () {
     gulp.src(path.src.html)
-    // .pipe(changed(path.dev.htmlDest))
-    .pipe(rigger()).on('error', swallowError) // uses construction   //= footer.html  to add partils 
-    // .pipe(minifyHTML(opts))
-    .pipe(gulp.dest(path.dev.htmlDest)).on('error', swallowError)  
-    .pipe(reload({stream: true}));
+        .pipe(plugins.plumber({
+            errorHandler: plugins.notify.onError(function (err) {
+                return {
+                    title: 'Build html error',
+                    message: err.message
+                }
+            })
+        }))
+        // .pipe(plugins.changed(path.dev.htmlDest))
+        .pipe(plugins.rigger())// uses construction   //= footer.html  to add partils 
+        .pipe(gulp.dest(path.dev.htmlDest))
+        .pipe(reload({ stream: true }));
 });
-gulp.task('html:build-partial', function () {
+gulp.task('build:html-partial', function () {
     gulp.src(path.src.html)
-    .pipe(changed(path.dev.htmlDest))
-    .pipe(rigger()).on('error', swallowError) // uses construction   //= footer.html  to add partils 
-    // .pipe(minifyHTML(opts))
-    .pipe(gulp.dest(path.dev.htmlDest)).on('error', swallowError)  
-    .pipe(reload({stream: true}));
+        .pipe(plugins.plumber({
+            errorHandler: plugins.notify.onError(function (err) {
+                return {
+                    title: 'Build partials html error',
+                    message: err.message
+                }
+            })
+        }))
+        .pipe(plugins.changed(path.dev.htmlDest))
+        .pipe(plugins.if(config.showGulpDebug, plugins.debug('changed html: ')))
+        .pipe(plugins.rigger())// uses construction   //= footer.html  to add partils 
+        .pipe(gulp.dest(path.dev.htmlDest))
+        .pipe(reload({ stream: true }));
 });
 // CSS src --> development
-gulp.task('style:build', function () {
-    gulp.src(path.src.style) // get scss from 
-    .pipe(sass({
-        includePaths: ['style:build'].concat(neat) // concat to 1 file 
-    })).on('error', swallowError)
-    .pipe(autoprefixer({browsers: ['last 5 versions', 'IE 7']})).on('error', swallowError)
-    .pipe(gulp.dest(path.dev.styleDest)) // build css in folder 
-    .pipe(browserSync.stream()); // livereload page
+gulp.task('build:style', function () {
+    gulp.src(path.src.style)
+        .pipe(plugins.plumber({
+            errorHandler: plugins.notify.onError(function (err) {
+                return {
+                    title: 'Build style error',
+                    message: err.message
+                }
+            })
+        }))
+        // .pipe(plugins.if(isDevelopment, plugins.sourcemaps.init()))
+        .pipe(plugins.sass({
+            includePaths: ['style:build'].concat(plugins.neat) // concat to 1 file 
+        }))
+        .pipe(plugins.autoprefixer({ browsers: ['last 5 versions', 'IE 7'] }))
+        // .pipe(plugins.if(isDevelopment, plugins.sourcemaps.write('.')))
+        .pipe(gulp.dest(path.dev.styleDest)) // build css in folder 
+        .pipe(browserSync.stream()); // livereload page
 });
 // JS src --> development
-gulp.task('js:build', function () {
-    gulp.src([
-        'src/js/vendor/*.js',
-        'src/js/*.js'
-        ])
-    .pipe(babel({presets: ['es2015']})).on('error', swallowError) // es6 -> es5
-    .pipe(concatjs('main.js')).on('error', swallowError) // build js to 1 file 
-    .pipe(gulp.dest(path.dev.jsDest)) // build css in folder 
-    .pipe(browserSync.stream()); // livereload page
+gulp.task('build:js', function () {
+    gulp.src(['src/js/main.js'])
+        // gulp.src(['src/js/vendor/*.js','src/js/*.js'])
+        .pipe(plugins.plumber({
+            errorHandler: plugins.notify.onError(function (err) {
+                return {
+                    title: 'Build JS error',
+                    message: err.message
+                }
+            })
+        }))
+        .pipe(named())
+        // .pipe(webpackStream(webpackConfig))
+        .pipe(plugins.if(config.removeJsConsoleLogDev, plugins.removeLogging()))
+        .pipe(plugins.babel({ presets: ['es2015'] })) // es6 -> es5
+        .pipe(plugins.if(config.concatJS, plugins.concat('main.js'))) // build js to 1 file 
+        .pipe(gulp.dest(path.dev.jsDest))
+        .pipe(browserSync.stream()); // livereload page
 });
 //relocate images to dev
-gulp.task('img:build',function(){
+gulp.task('build:img', function () {
     gulp.src(path.src.img)
-    .pipe(gulp.dest(path.dev.imgDest))
-    .pipe(browserSync.stream());
+        .pipe(plugins.plumber({
+            errorHandler: plugins.notify.onError(function (err) {
+                return {
+                    title: 'Image build error',
+                    message: err.message
+                }
+            })
+        }))
+        .pipe(plugins.if(config.checkChanged, plugins.changed('dev/img')))
+        .pipe(plugins.if(config.showGulpDebug, plugins.debug()))
+        .pipe(gulp.dest(path.dev.imgDest))
+        .pipe(browserSync.stream());
 });
 // Build sprite
-gulp.task('sprite:build',function(){
-    var spriteData =
-    gulp.src(path.src.sprite)
-    .pipe(spritesmith({
-        imgName: 'sprite.png',
-        cssName: 'sprite.css',
-        cssFormat: 'css',
-    }));
-    spriteData.img.pipe(gulp.dest(path.dev.styleDest)); // путь, куда сохраняем картинку
-    spriteData.css.pipe(gulp.dest(path.src.spriteCss)); // путь, куда сохраняем стили
+gulp.task('build:sprite', function () {
+    var spriteData = gulp.src('src/img/sprite/*.png')
+        .pipe(plugins.plumber({
+            errorHandler: plugins.notify.onError(function (err) {
+                return {
+                    title: 'Sprite build error',
+                    message: err.message
+                }
+            })
+        }))
+        .pipe(plugins.spritesmith({
+            imgName: 'sprite.png',
+            cssName: 'sprite.css',
+            imgPath: '../img/sprite.png',
+            retinaImgPath: '../img/sprite@2x.png',
+            retinaSrcFilter: 'src/img/sprite/*@2x.png',
+            retinaImgName: 'sprite@2x.png',
+
+        }));
+    spriteData.img.pipe(gulp.dest("dev/img")) // path where save sprite image
+        .pipe(plugins.if(config.checkChanged, plugins.debug({ "title": "sptire images generated: " })));
+
+    spriteData.css.pipe(gulp.dest(path.src.spriteCss)) // path where save sprite css
+        .pipe(plugins.if(config.checkChanged, plugins.debug({ "title": "sptire css generated: " })));
+});
+// Lint Php
+gulp.task('build:php', function () { // test
+    return gulp.src(path.src.php)
+        .pipe(plugins.plumber({
+            errorHandler: plugins.notify.onError(function (err) {
+                return {
+                    title: 'Php build error',
+                    message: err.message
+                }
+            })
+        }))
+        .pipe(plugins.phplint())
+        .pipe(gulp.dest('dev/'))
+});
+// replace fonts 
+gulp.task('build:fonts', function () {
+    let destination = 'dev/fonts/';
+    return gulp.src('src/fonts/**/*.*')
+        .pipe(plugins.if(config.checkChanged, plugins.changed(destination)))
+        .pipe(plugins.if(config.showGulpDebug, plugins.debug('fonts files added: ')))
+        .pipe(gulp.dest(destination))
+        .pipe(browserSync.stream());
+})
+// replace vendor files & media 
+gulp.task('build:vendor', function () {
+    let destination = 'dev/vendor/';
+    return gulp.src('src/vendor/**/*.*')
+        .pipe(plugins.if(config.checkChanged, plugins.changed(destination)))
+        .pipe(plugins.if(config.showGulpDebug, plugins.debug('vendor files added: ')))
+        .pipe(gulp.dest(destination))
+        .pipe(reload({ stream: true }));
+})
+gulp.task('build:vendor-js',function(){
+    let dest = 'dev/js/vendor/';
+    return gulp.src('src/js/vendor/**/*.*')
+    .pipe(plugins.if(config.checkChanged, plugins.changed(dest)))
+    .pipe(plugins.if(config.showGulpDebug, plugins.debug('vendor js files added: ')))
+    .pipe(gulp.dest(dest))
+    .pipe(reload({ stream: true }));
+});
+
+// clear some
+gulp.task("clear", function () {
+    return del(
+        ['dev/style/main.css'],
+        { read: false } // preven from insert object in memory
+    );
 });
 
 
 // DEVELOPMENT BUILDING TASKS END
 
 gulp.task('build', [
-    'html:build',
-    'style:build',
-    'js:build',
-    'img:build',
-    'sprite:build'
-    ]);
+    'build:html',
+    'build:style',
+    'build:js',
+    'build:vendor-js',
+    'build:img',
+    'build:vendor',
+    'build:sprite',
+    'build:php',
+    'build:fonts',
+]);
 // 
 
 // Watcher that will autoupdate development
-gulp.task('watch', function(){
+gulp.task('watch', function () {
     // watch HTML to Build All
-    watch('src/templates/*/*.html', function(event, cb) {
-        gulp.start('html:build');
+    plugins.watch('src/templates/*/*.html', function (event, cb) {
+        gulp.start('build:html');
     });
     // watch HTML to Build 
-    watch(path.src.html, function(event, cb) {
-        gulp.start('html:build-partial');
+    plugins.watch(path.src.html, function (event, cb) {
+        gulp.start('build:html-partial');
     });
     // Watch HTML to livereload
-    watch([path.dev.html], function(event,cb){
+    plugins.watch([path.dev.html], function (event, cb) {
         gulp.src(path.dev.html)
-        .pipe(browserSync.stream());
+            .pipe(browserSync.stream());
     });
     // Watch Scss to build
     // watch([path.src.style], function(event, cb) {
-        watch([path.src.style, 'src/style/*/*.scss'], function(event, cb) {
-            gulp.start('style:build');
-        });
+    plugins.watch([path.src.style, 'src/style/*/*.scss'], function (event, cb) {
+        gulp.start('build:style');
+    });
     // Watch js to concat and livereload
-    watch(path.src.js, function(event, cb) {
-        gulp.start('js:build');
+    plugins.watch(path.src.js, function (event, cb) {
+        gulp.start('build:js');
     });
     // Watch images
-    watch([path.src.img], function(event,cb){
-        gulp.start('img:build');
+    plugins.watch(path.src.img, function (event, cb) {
+        gulp.start('build:img');
     });
     //Watch sprites
-    watch([path.src.sprite], function(event,cb){
-        gulp.start('sprite:build');
+    plugins.watch([path.src.sprite], function (event, cb) {
+        gulp.start('build:sprite');
+        gulp.start('build:style');
+    });
+    //Watch php
+    plugins.watch([path.src.php], function (event, cb) {
+        gulp.start('build:php');
+    });
+    plugins.watch('src/vendor/**/*.*', function () {
+        gulp.start('build:vendor');
+    });
+    plugins.watch('src/fonts/**/*.*', function () {
+        gulp.start('build:fonts');
+    });
+    plugins.watch('src/js/vendor/**/*.*', function () {
+        gulp.start('build:vendor-js');
     });
     // Watch js to livereload
     // watch([path.dev.js], function(event, cb) {
@@ -196,58 +410,151 @@ gulp.task('watch', function(){
 // 
 
 
+
+// gulp.task('sftp', function () { 
+//     return gulp.src("prod/**/*.*")
+//         .pipe(plugins.plumber({
+//             errorHandler: plugins.notify.onError(function (err) {
+//                 return {
+//                     title: 'Image build error',
+//                     message: err.message
+//                 }
+//             })
+//         }))
+//         .pipe(plugins.sftp({
+//             host: 'ef674.mirohost.net',
+//             user: 'ht007',
+//             port: 22,
+//             pass: 'QzaYmnCYN1rl',
+//             remotePath: '/public_html/sftp-test', // reccomend ssh
+//         }))
+//         .pipe(plugins.debug())
+// })
+
+
+// Do i need notify errors on prod 
+// .pipe(plugins.plumber({
+//     errorHandler: plugins.notify.onError(function (err) {
+//         return {
+//             title: 'title',
+//             message: err.message
+//         }
+//     })
+// }))
+
+
 // To production stage
 gulp.task("prod", [
-    'prod-html',
-    'prod-style',
-    'prod-js',
-    'prod-fonts',
-    'prod-img',
-    'prod-sprite',
-    ]);
+    'prod:html',
+    'prod:php',
+    'prod:style',
+    'prod:js',
+    'prod:fonts',
+    'prod:img',
+    'prod:htaccess',
+    'prod:vendor',
+    // 'prod:sprite',
+]);
 
-gulp.task('prod-html', function(){
+gulp.task('prod:html', function () {
     gulp.src(path.dev.html)
-    .pipe(minifyHTML(opts))
-    .pipe(gulp.dest(path.prod.html));
+        .pipe(plugins.if(config.checkChanged, plugins.changed(path.prod.html))) // NEED TO DETALIZE HOW DETECT IF FILE WAS DELETED 
+        .pipe(plugins.if(config.minifyHTML, plugins.minifyHtml(htmlMinOptions)))
+        .pipe(plugins.if(config.showGulpDebug, plugins.debug({ title: 'Changed html min files : ' })))
+        .pipe(gulp.dest(path.prod.html));
 });
-gulp.task('prod-style', function(){
+gulp.task('prod:style', function () {
     gulp.src(path.dev.style)
-    .pipe(autoprefixer({browsers: ['last 5 versions', 'IE 7']}))
-    .pipe(minifyCss({compatibility: 'ie8'}))
-    .pipe(gulp.dest(path.prod.style));
+        .pipe(plugins.if(config.checkChanged, plugins.changed(path.prod.style)))
+        .pipe(plugins.if(config.showGulpDebug, plugins.debug({ title: 'Minified css : ' })))
+        .pipe(plugins.if(config.minifyCSS, plugins.minifyCss({ compatibility: 'ie8' })))
+        .pipe(gulp.dest(path.prod.style));
 });
-gulp.task('prod-js', function(){
-    gulp.src([path.dev.js])
-    .pipe(uglify()).on('error', swallowError)
-    .pipe(gulp.dest(path.prod.js));
+gulp.task('prod:js', function () { // Minify all js files
+    gulp.src('dev/js/**/*.js')
+        // gulp.src([path.dev.js])
+        .pipe(plugins.plumber({
+            errorHandler: plugins.notify.onError(function (err) {
+                return {
+                    title: 'Pord JS error',
+                    message: err.message
+                }
+            })
+        }))
+        .pipe(plugins.if(config.checkChanged, plugins.changed(path.prod.js)))
+        .pipe(plugins.if(config.removeJsConsoleLog, plugins.removeLogging())) // remove all console logs
+        .pipe(plugins.if(config.uglifyJS, plugins.uglify())) // uglify 
+        .pipe(plugins.if(config.showGulpDebug, plugins.debug({ title: 'Uglified js : ' })))
+        .pipe(gulp.dest(path.prod.js));
 });
-gulp.task('prod-fonts', function(){
-    gulp.src("dev/fonts/*.*")
-    .pipe(gulp.dest("prod/fonts/*.*"));
+gulp.task('prod:fonts', function () {
+    del("prod/fonts/*.*", { read: false }); // clear all old files 
+    gulp.src("dev/fonts/**/*.*")
+        .pipe(plugins.if(config.checkChanged, plugins.changed("prod/fonts")))
+        .pipe(plugins.if(config.fontMinify, plugins.fontmin()))
+        .pipe(gulp.dest("prod/fonts"));
 });
-gulp.task('prod-img', function(){
-    return gulp.src(path.src.img)
-    .pipe(imagemin({ 
-        progressive: true,
-        svgoPlugins: [{removeViewBox: false}],
-        use: [pngquant()],
-        interlaced: true
+gulp.task('prod:img', function () {
+    // return gulp.src(path.src.img)
+    return gulp.src("dev/img/**/*.*")
+        .pipe(plugins.if(config.checkChanged, plugins.changed(path.prod.img)))
+        .pipe(plugins.if(config.showGulpDebug, plugins.debug({ title: 'images changed: ' })))
 
-    }))
-    .pipe(gulp.dest(path.prod.img))  
-})
-gulp.task('prod-sprite', function(){
-    return gulp.src("dev/style/sprite.png")
-    .pipe(imagemin({ 
-        progressive: true,
-        svgoPlugins: [{removeViewBox: false}],
-        use: [pngquant()],
-        interlaced: true
+        .pipe(plugins.imagemin({
+            progressive: true,
+            svgoPlugins: [{ removeViewBox: false }],
+            use: [pngquant()],
+            interlaced: true
+        }))
+        .pipe(gulp.dest(path.prod.img))
 
-    }))
-    .pipe(gulp.dest("prod/style"))  
+});
+// gulp.task('prod:sprite', function () {
+//     return gulp.src("dev/style/sprite.png")
+//         .pipe(plugins.if(config.checkChanged, plugins.changed("prod/style")))
+//         .pipe(plugins.if(config.showGulpDebug, plugins.debug()))
+//         .pipe(plugins.imagemin({
+//             progressive: true,
+//             svgoPlugins: [{ removeViewBox: false }],
+//             use: [pngquant()],
+//             interlaced: true
+//         }))
+//         .pipe(gulp.dest("prod/style"))
+// });
+gulp.task('prod:php', function () { // test
+    gulp.src('dev/**/*.php')
+        .pipe(plugins.plumber({
+            errorHandler: plugins.notify.onError(function (err) {
+                return {
+                    title: 'PHP',
+                    message: err.message
+                }
+            })
+        }))
+        .pipe(plugins.if(config.checkChanged, plugins.changed("prod/")))
+        .pipe(plugins.if(config.showGulpDebug, plugins.debug({ title: 'PHP files minified' })))
+        .pipe(plugins.if(config.minifyPHP, plugins.phpMinify({ silent: true })))
+        .pipe(gulp.dest("prod/"))
+});
+gulp.task('prod:htaccess', function () {
+    gulp.src('src/**/.htaccess')
+        .pipe(plugins.if(config.checkChanged, plugins.changed("prod/")))
+        .pipe(plugins.if(config.showGulpDebug, plugins.debug({ title: 'htaccess rewriten : ' })))
+        .pipe(gulp.dest("prod/"))
 })
+gulp.task('prod:vendor', function () {
+    // let takeFrom = 'src/vendor/**/*.*';
+    let takeFrom = 'dev/vendor/**/*.*';
+    let destination = 'prod/vendor/';
+    return gulp.src(takeFrom)
+        .pipe(plugins.if(config.checkChanged, plugins.changed(destination)))
+        .pipe(plugins.if(config.showGulpDebug, plugins.debug('vendor files added: ')))
+        .pipe(gulp.dest(destination))
+})
+
 // 
+gulp.task("build-prod", [
+    'build', 'prod'
+]);
 
-gulp.task('default', ['build', 'webserver', 'watch']);
+gulp.task('default', ['check-enviroment', 'build', 'webserver', 'watch']);

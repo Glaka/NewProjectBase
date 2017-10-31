@@ -1,7 +1,11 @@
-// @import 'https://fonts.googleapis.com/css?family=Roboto:300,400,700,900&subset=cyrillic';
-@import "vendor/normalize"; // Normalize by default instead reset
-@import "sprite/sprite"; // sprite icons @extend .icon-.....
+// @import 'https://fonts.googleapis.com/css?family=Roboto:300,400,700,900&subset=cyrillic'
+
+@import "vendor/reset";
+@import "vendor/normalize";
+
+// sprite icons @extend .icon-.....
+@import "sprite/sprite";
 
 body {
-	// font-family: 'Roboto', sans-serif;
+    // font-family: 'Roboto', sans-serif;
 }
