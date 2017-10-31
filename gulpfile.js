@@ -153,12 +153,8 @@ gulp.task('webserver', function () {
 // Dev/prod
 gulp.task('check-enviroment', function () {
     console.group('Check eniroment. Enviroment is dev : ' + isDevelopment);
-    // if (isDevelopment) {
-    //     gulpOptions = {}
-    // }
-    // else {
-    //     gulpOptions = {}
-    // }
+    // if (isDevelopment) {gulpOptions = {}}
+    // else {gulpOptions = {}}
 });
 
 
@@ -593,4 +589,4 @@ gulp.task("build-prod", [
     'build', 'prod'
 ]);
 
-gulp.task('default', ['check-enviroment', 'build', 'webserver', 'watch']);
+gulp.task('default', ['build', 'webserver', 'watch']);
