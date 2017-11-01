@@ -334,6 +334,7 @@ gulp.task('build:php', function () { // test
             })
         }))
         .pipe(plugins.phplint())
+        .pipe(plugins.phplint.reporter('fail'))
         .pipe(gulp.dest('dev/'))
 });
 // replace fonts 
