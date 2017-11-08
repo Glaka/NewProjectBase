@@ -1,16 +1,14 @@
 const gulp = require('gulp');
-
 const browserSync = require("browser-sync");
 const reload = browserSync.reload;
 const webpackStream = require('webpack-stream');
 const webpack = webpackStream.webpack;
-
+const critical = require('critical');
+const pathPlugin = require('path');
 const named = require('vinyl-named');
 const del = require('del');
 const pngquant = require('imagemin-pngquant');
-
-// require all plugins 
-const plugins = require('gulp-load-plugins')({
+const plugins = require('gulp-load-plugins')({ // this one requires all plugins with prefix 'gulp-'
     pattern: ['gulp-*', 'gulp.*'],
     replaceString: /\bgulp[\-.]/
 });
@@ -33,7 +31,7 @@ const plugins = require('gulp-load-plugins')({
 // const plumber = require('gulp-plumber'); // sets errors to all pipes
 // const debug = require('gulp-debug'); // let debug gulp processes
 // const neat = require('node-neat').includePaths; // wat for 
-// const babel = require('gulp-babel');
+// const babel = require('babel');
 // sftp - https://github.com/gtg092x/gulp-sftp 
 // fontmin - https://www.npmjs.com/package/gulp-fontmin
 // new test packages 
@@ -65,45 +63,20 @@ let BrowserSyncConfig = {
     notify: true,
     scrollProportionally: false,
     logPrefix: "Frontend",
-    // proxy: "http://inchoo.net/magento/magento-frontend/a-simple-frontend-workflow-for-gulp/",
-    // middleware: require('serve-static')('./dev'),
-    // files: "./dev/style/main.css",
-    // rewriteRules: [
-    //     {
-    //         match: new RegExp('</head>'),
-    //         fn: function() {
-    //             return '<script async="" src="/browser-sync/browser-sync-client.2.9.6.js"></script>' +
-    //                 '<link rel="stylesheet" type="text/css" href="/css/main.css" media="all"><script src="/js/responsive.js" type="text/javascript"></script></head >'
-    //         }
-    //     },
-    //     {
-    //         match: new RegExp('<link rel="up" href="/">'),
-    //         fn: function() {
-    //             return '<link rel="stylesheet" type="text/css" href="/css/music.css" media="all">'
-    //         }
-    //     },
-    //     {
-    //         match: '<link rel="stylesheet" type="text/css" href="/f/1/business/find_solutions/smeLandingNew.css?1.1" media="all">',
-    //         fn: function() {
-    //             return '<link rel="stylesheet" type="text/css" href="/f/1/business/find_solutions/smeLandingNew.css?1.1" media="all"><link rel="stylesheet" type="text/css" href="/css/find-solutions.css" media="all">'
-    //         }
-    //     },
-    //     // removing already deployed assets
-    //     {
-    //         match: new RegExp('/f/1/mm/tariffs/contract/global/main.css'),
-    //         fn: function() {
-    //             return ''
-    //         }
-    //     },
-    //     {
-    //         match: new RegExp('/f/1/mm/tariffs/contract/global/responsive.js'),
-    //         fn: function() {
-    //             return ''
-    //         }
-    //     }
-    // ],
 };
 let webpackConfig = {
+    watch: true,
+    devtool: 'cheap-module-inline-source-map',
+    module: {
+        loaders: [{
+            test: /\.js/,
+            include: pathPlugin.join(__dirname, 'src'), // __dirname - absolute path // к чему применять бабел
+            loader: 'babel-loader',
+        }]
+    },
+    plugins: [
+        new webpack.NoEmitOnErrorsPlugin()
+    ]
 };
 
 // HTML min options
@@ -112,37 +85,7 @@ let htmlMinOptions = {
     spare: true
 };
 // Path options 
-// let path = require('/gulptasks/path')
-let path = {
-    src: {
-        html: 'src/templates/*.html',
-        htmlWatch: 'src/templates/**/*.html',
-        style: 'src/style/*.{scss,sass}',
-        js: 'src/js/**/*.js',
-        img: ['src/img/**/*.*', '!src/img/sprite/**/*.*'], // all images but not sprites
-        sprite: 'src/img/sprite/*.*',
-        spriteCss: 'src/style/sprite',
-        php: 'src/**/*.php',
-    },
-    dev: {
-        htmlDest: 'dev/',
-        html: 'dev/*.html',
-        styleDest: 'dev/style',
-        style: 'dev/style/*.css',
-        jsDest: 'dev/js',
-        js: 'dev/js/*.js',
-        imgDest: 'dev/img',
-        sprite: 'dev/img/sprite',
-    },
-    prod: {
-        root: 'prod/',
-        style: 'prod/style',
-        img: 'prod/img',
-        js: 'prod/js',
-        fonts: 'prod/fonts',
-        vendor: 'prod/vendor',
-    }
-};
+let path = require('./gulptasks/path');
 
 
 // Webserver start task 
@@ -207,6 +150,7 @@ gulp.task('build:html-partial', function () {
 let autoprefixer = require('autoprefixer')
 let mqpacker = require('css-mqpacker')
 let csso = require('postcss-csso')
+let short = require('postcss-short')
 var processors = [
     autoprefixer({
         browsers: ['last 4 versions'],
@@ -216,7 +160,8 @@ var processors = [
     mqpacker({
         sort: sortMediaQueries
     }),
-    csso
+    csso,
+    short,
 ];
 function isMax(mq) {
     return /max-width/.test(mq);
@@ -262,7 +207,8 @@ gulp.task('build:style', function () {
 // stuff for css compilation END
 // JS src --> development
 gulp.task('build:js', function () {
-    gulp.src(['src/js/main.js'])
+    gulp.src('src/js/*.js')
+        // gulp.src(['src/js/main.js'])
         // gulp.src(['src/js/vendor/*.js','src/js/*.js'])
         .pipe(plugins.plumber({
             errorHandler: plugins.notify.onError(function (err) {
@@ -273,10 +219,10 @@ gulp.task('build:js', function () {
             })
         }))
         .pipe(named())
-        // .pipe(webpackStream(webpackConfig))
+        .pipe(webpackStream(webpackConfig))
         .pipe(plugins.if(config.removeJsConsoleLogDev, plugins.removeLogging()))
-        .pipe(plugins.babel({ presets: ['es2015'] })) // es6 -> es5
-        .pipe(plugins.if(config.concatJS, plugins.concat('main.js'))) // build js to 1 file 
+        // .pipe(plugins.babel({ presets: ['es2015'] })) // es6 -> es5
+        // .pipe(plugins.if(config.concatJS, plugins.concat('main.js'))) // build js to 1 file 
         .pipe(gulp.dest(path.dev.jsDest))
         .pipe(browserSync.stream()); // livereload page
 });
@@ -308,12 +254,12 @@ gulp.task('build:sprite', function () {
             })
         }))
         .pipe(plugins.spritesmith({
-            imgName: 'sprite.png',
             cssName: 'sprite.css',
-            imgPath: '../img/sprite.png',
-            retinaImgPath: '../img/sprite@2x.png',
-            retinaSrcFilter: 'src/img/sprite/*@2x.png',
-            retinaImgName: 'sprite@2x.png',
+            imgName: 'sprite.png', // image nam by default  'sprite.png'
+            retinaImgName: 'sprite@2x.png', // image nam by default   'sprite@2x.png'
+            imgPath: 'http://res.cloudinary.com/ds3tq91lc/image/upload/v1509567926/sprite_xejecm.png', // path to image that should know css // '../img/sprite.png'
+            retinaImgPath: 'http://res.cloudinary.com/ds3tq91lc/image/upload/v1509567926/sprite_2x_jyhhhu.png', // path to retina image that should know css // '../img/sprite@2x.png'
+            retinaSrcFilter: 'src/img/sprite/*@2x.png', // retina images should be in same folder as non-retina 
 
         }));
     spriteData.img.pipe(gulp.dest("dev/img")) // path where save sprite image
@@ -364,6 +310,22 @@ gulp.task('build:vendor-js', function () {
         .pipe(reload({ stream: true }));
 });
 
+// gulp.task('build:critical', ['build'], function (cb) {
+//     critical.generate({
+//         inline: true,
+//         minify: true,
+//         base: 'dev/',
+//         src: 'index.html',
+//         dest: './index-critical.html',
+//         extract: true, // if need extract from original css
+//         css: 'dev/style/main.css',
+//         width: 1400, 
+//         timeout: 30000,
+//         height: 760,
+//         ignore: ['@font-face', /url\(/],
+//     });
+// });
+
 // clear some
 gulp.task("clear", function () {
     return del(
@@ -389,6 +351,10 @@ gulp.task('build', [
 // 
 
 // Watcher that will autoupdate development
+let watchOptions = {
+    style: true,
+    js: true
+};
 gulp.task('watch', function () {
     // watch HTML to Build All
     plugins.watch('src/templates/*/*.html', function (event, cb) {
@@ -403,15 +369,17 @@ gulp.task('watch', function () {
         gulp.src(path.dev.html)
             .pipe(browserSync.stream());
     });
-    // Watch Scss to build
-    // watch([path.src.style], function(event, cb) {
-    plugins.watch([path.src.style, 'src/style/*/*.scss'], function (event, cb) {
-        gulp.start('build:style');
-    });
-    // Watch js to concat and livereload
-    plugins.watch(path.src.js, function (event, cb) {
-        gulp.start('build:js');
-    });
+    if (watchOptions.style) { // Watch styles 
+        // plugins.watch([path.src.style, 'src/style/*/*.scss'], function (event, cb) {
+        plugins.watch('src/style/**/*.{scss,sass,css}', function (event, cb) {
+            gulp.start('build:style');
+        })
+    }
+    if (watchOptions.js) {// Watch js to concat and livereload
+        plugins.watch(path.src.js, function (event, cb) {
+            gulp.start('build:js');
+        })
+    }
     // Watch images
     plugins.watch(path.src.img, function (event, cb) {
         gulp.start('build:img');
@@ -450,10 +418,10 @@ gulp.task('watch', function () {
 //             })
 //         }))
 //         .pipe(plugins.sftp({
-//             host: 'ef674.mirohost.net',
-//             user: 'ht007',
-//             port: 22,
-//             pass: 'QzaYmnCYN1rl',
+//             host: '',
+//             user: '',
+//             port: '',
+//             pass: '',
 //             remotePath: '/public_html/sftp-test', // reccomend ssh
 //         }))
 //         .pipe(plugins.debug())
@@ -499,9 +467,30 @@ gulp.task('prod:style', function () {
             title: 'size after min : '
         })))
 });
+const UglifyJSPlugin = require('uglifyjs-webpack-plugin');
+const NoConsolePlugin = require('no-console-webpack-plugin');
+
+let webpackConfigProd = {
+    // watch: false,
+    // devtool: null,
+    module: {
+        loaders: [{
+            test: /\.js/,
+            include: pathPlugin.join(__dirname, 'src'),
+            loader: 'babel-loader',
+        }]
+    },
+    plugins: [
+        // new NoConsolePlugin(),
+        new UglifyJSPlugin(),
+        new webpack.NoEmitOnErrorsPlugin(),
+    ]
+};
 gulp.task('prod:js', function () { // Minify all js files
+    // console.log(path.prod.js);
     let destination = path.prod.js;
-    gulp.src(['dev/js/**/*.js', '!main.css.map'])
+    // gulp.src('dev/js/**/*.js')
+    gulp.src('dev/js/*.js')
         .pipe(plugins.plumber({
             errorHandler: plugins.notify.onError(function (err) {
                 return {
@@ -510,12 +499,14 @@ gulp.task('prod:js', function () { // Minify all js files
                 }
             })
         }))
-        .pipe(plugins.if(config.checkChanged, plugins.changed(destination)))
-        .pipe(plugins.if(config.removeJsConsoleLog, plugins.removeLogging())) // remove all console logs
+        // .pipe(plugins.if(config.checkChanged, plugins.changed(destination)))
+        // .pipe(plugins.if(config.removeJsConsoleLog, plugins.removeLogging())) // remove all console logs
+        .pipe(named())
+        .pipe(webpackStream(webpackConfigProd))
         .pipe(plugins.if(config.showSizes, plugins.size({
             title: 'size before min : '
         })))
-        .pipe(plugins.if(config.uglifyJS, plugins.uglify())) // uglify 
+        // .pipe(plugins.if(config.uglifyJS, plugins.uglify())) // uglify 
         .pipe(plugins.if(config.showGulpDebug, plugins.debug({ title: 'Uglified js : ' })))
         .pipe(gulp.dest(destination))
         .pipe(plugins.if(config.showSizes, plugins.size({
@@ -585,6 +576,22 @@ gulp.task('prod:vendor', function () {
         .pipe(plugins.if(config.showGulpDebug, plugins.debug('vendor files added: ')))
         .pipe(gulp.dest(destination))
 })
+
+gulp.task('prod:critical', ['prod'], function (cb) {
+    critical.generate({
+        inline: true,
+        minify: true,
+        base: 'prod/',
+        src: 'index.html',
+        dest: './index.html',
+        extract: true, // if need extract from original css
+        css: 'prod/style/main.css',
+        width: 1400,
+        // timeout: 30000,
+        height: 760,
+        // ignore: ['@font-face', /url\(/],
+    });
+});
 
 gulp.task("build-prod", [
     'build', 'prod'
