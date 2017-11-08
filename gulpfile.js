@@ -257,8 +257,8 @@ gulp.task('build:sprite', function () {
             cssName: 'sprite.css',
             imgName: 'sprite.png', // image nam by default  'sprite.png'
             retinaImgName: 'sprite@2x.png', // image nam by default   'sprite@2x.png'
-            imgPath: 'http://res.cloudinary.com/ds3tq91lc/image/upload/v1509567926/sprite_xejecm.png', // path to image that should know css // '../img/sprite.png'
-            retinaImgPath: 'http://res.cloudinary.com/ds3tq91lc/image/upload/v1509567926/sprite_2x_jyhhhu.png', // path to retina image that should know css // '../img/sprite@2x.png'
+            imgPath: '../img/sprite.png', // path to image that should know css // '../img/sprite.png'
+            retinaImgPath: '../img/sprite@2x.png', // path to retina image that should know css // '../img/sprite@2x.png'
             retinaSrcFilter: 'src/img/sprite/*@2x.png', // retina images should be in same folder as non-retina 
 
         }));
