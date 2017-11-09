@@ -1,11 +1,11 @@
 What this gulp can do : 
--- compile scss/sass to one css , add prefixes , expand short input by postcss short
--- bundle js from modules to one bundled js file , minimize to production stage 
--- lint php , minimize to production
--- build sprite image prof icons ( one default version and one sprite for retina displays that automaticaly uses by media rule in generated sprite.css )
--- minimize images to production stage
--- transoprts vendor files from src to dev/ and prod/ witout no need to touch this folders manualy 
--- build html from parts and minify to prod stage
+- compile scss/sass to one css , add prefixes , expand short input by postcss short
+- bundle js from modules to one bundled js file , minimize to production stage 
+- lint php , minimize to production
+- build sprite image prof icons ( one default version and one sprite for retina displays that automaticaly uses by media rule in generated sprite.css )
+- minimize images to production stage
+- transoprts vendor files from src to dev/ and prod/ witout no need to touch this folders manualy 
+- build html from parts and minify to prod stage
 ------------------------------
 Install NPM packages :
 `npm i` 
