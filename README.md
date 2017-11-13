@@ -27,6 +27,7 @@ Default dev urls : http://localhost:9451
 
 install new package for development :
 npm i *package-name* --save-dev
+
 install new plugin or lib : 
 npm i *package-name* --save-dep
 
