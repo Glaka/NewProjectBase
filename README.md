@@ -31,5 +31,13 @@ install new plugin or lib :
 npm i *package-name* --save-dep
 
 ------------------------------
-Sprite instruction 
+Sprite instruction :
+source sprite images should be in 'src/img/sprite' directory 
+
+For retina support should be 2 versions of image , for examlpe : 
+'example.png' and 'example@2x.png' for retina display. 
+
+to use sprite in development in html add class .icon-example or in scss @export .icon-example
+
+------------------------------
 
