@@ -5,7 +5,11 @@
     "type": "git",
     "url": ""
   },
-  "babel": {},
+  "babel": {
+    "presets": [
+      "es2015"
+    ]
+  },
   "author": "glaka",
   "main": "gulpfile.js",
   "description": "fun project",
