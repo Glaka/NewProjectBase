@@ -1,9 +1,9 @@
 {
-  "name": "hedgehog",
+  "name": "new project",
   "version": "1.0.0",
   "repository": {
     "type": "git",
-    "url": "https://gitlab.com/hedgehog.technology/ht-corporate-website"
+    "url": ""
   },
   "babel": {
     "presets": [
@@ -12,7 +12,7 @@
   },
   "author": "glaka",
   "main": "gulpfile.js",
-  "description": "fun project",
+  "description": "start project",
   "devDependencies": {
     "autoprefixer": "^8.0.0",
     "babel-core": "^6.26.0",
